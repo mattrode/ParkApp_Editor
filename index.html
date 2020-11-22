@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Parks Trash Application</title>
+    <style>
+      html,
+      body,
+      #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+          .overlay {
+      opacity:0;
+      position:fixed;
+      top:-999em;
+      left:-999em;
+      width:100%;
+      height:100%;
+      display:table;
+      background:rgba(0,0,0,0.8);
+      -webkit-animation: splash 10s forwards;
+      animation: splash 10s forwards;
+    }
+    .overlay-inner {
+      display:table-cell;
+      vertical-align:middle;
+      text-align:center;
+    }
+    .message {
+      border:10px solid black;
+      border-radius:10px;
+      background:#e6e4e1;
+      display:inline-block;
+      vertical-align:middle;
+      width:50%;
+      text-align:middle;
+      padding:10px;
+    }
+    @-webkit-keyframes splash {
+      0%  {opacity: 0;top:0;left:0}
+      20% {opacity:1;top:0;left:0}
+      60% {opacity:1;top:0;left:0}
+      99% {top:0;left:0}
+      100% {opacity:0;top:-999em;left:-999em}
+    }
+    @-moz-keyframes splash {
+      0%  {opacity: 0;top:0;left:0}
+      20% {opacity:1;top:0;left:0}
+      60% {opacity:1;top:0;left:0}
+      99% {top:0;left:0}
+      100% {opacity:0;top:-999em;left:-999em}
+    }
+    @-ms-keyframes splash {
+      0%   {opacity: 0;top:0;left:0}
+         20% {opacity:1;top:0;left:0}
+         60% {opacity:1;top:0;left:0}
+         99% {top:0;left:0}
+         100% {opacity:0;top:-999em;left:-999em}
+    }
+    @keyframes splash {
+      0%  {opacity: 0;top:0;left:0}
+      20% {opacity:1;top:0;left:0}
+      60% {opacity:1;top:0;left:0}
+      99% {top:0;left:0}
+      100% {opacity:0;top:-999em;left:-999em}
+    }
+    </style>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.17/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.17/"></script>
+    <script>
+    require([
+      "esri/config",
+      "esri/Map",
+      "esri/portal/Portal",
+      "esri/identity/OAuthInfo",
+      "esri/identity/IdentityManager",
+      "esri/portal/PortalQueryParams",
+      "esri/Basemap",
+      "esri/views/MapView",
+      "esri/widgets/BasemapToggle",
+      "esri/widgets/BasemapGallery",
+      "esri/layers/FeatureLayer",
+      "esri/widgets/Locate",
+      "esri/widgets/Editor",
+      "esri/widgets/Expand",
+      "esri/widgets/Legend",
+      "esri/widgets/Zoom"
+    ], function(esriConfig, Map, Portal, OAuthInfo, esriId, PortalQueryParams, Basemap,
+      MapView, BasemapToggle, BasemapGallery, FeatureLayer, Locate, Editor, Expand, Legend, Zoom) {
+
+
+      //adds portal for basemaps
+      esriConfig.portalUrl = "https://phl.maps.arcgis.com";
+
+      //loading the "city" basemap
+      var portal = new Portal()
+      portal
+        .load()
+        .then(function(){
+      var basemap = new Basemap({
+        portalItem: {
+          id: "83b437be7fd347dd9290e6157b5bfb03"
+        }
+      });
+
+      var map = new Map({
+        basemap: "topo"
+      });
+
+      //default app view
+      var view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [-75.204, 39.984], // longitude, latitude
+        zoom: 15
+      });
+
+      //Constrain the max and min zoom levels
+      view.constraints = {
+        minZoom: 0,
+        maxZoom: 22
+      };
+      //adds city specific basemaps to app
+      var basemapGallery = new BasemapGallery({
+        view: view
+
+      });
+      //adds expandable basemap gallery
+      var bgExpand = new Expand({
+        view: view,
+        content: basemapGallery
+      });
+      //adds gallery widget
+      view.ui.add(bgExpand, "top-right");
+
+      //lets users know their location via the default button and zooms to it
+      var locate = new Locate({
+        view: view,
+        useHeadingEnabled: false,
+        goToOverride: function (view, options) {
+          options.target.scale = 1500; // Override the default map scale
+          return view.goTo(options.target);
+        }
+      });
+
+      //adds locate button
+      view.ui.add(locate, "top-left");
+
+      //pop up content for trash and park layer
+      var popupPoints = {
+        "title": "{TYPE}",
+        "content": "<b>Additional Details:</b> {COMMENT} \n <b>Status:</b> {STATUS}"
+      }
+      //var popupParks = {
+      //"title": "{PARK_NAME}"
+      //}
+
+      //add trash point layer to maps
+      var trashLayer = new FeatureLayer({
+        url: "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/Trash_Points/FeatureServer/0",
+        outFields: ["TYPE", "COMMENT", "STATUS"],
+        popupTemplate:popupPoints
+      });
+      map.add(trashLayer,0);
+
+      //adds park layer to app
+      var parksLayer = new FeatureLayer({
+        url:
+          "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/Parks/FeatureServer/0",
+        //outFields: ["PARK_NAME"],
+        //popupTemplate: popupParks
+      });
+      //adds parks layer
+      map.add(parksLayer, 0);
+
+      //adds editing functionality
+      var editor = new Editor({
+        view: view,
+        container: document.createElement("div")
+      });
+      //adds expandable editor
+      var edExpand = new Expand({
+        view: view,
+        content: editor
+      });
+      // Add widget to top left of the view
+      view.ui.add(edExpand, "top-left");
+
+      //adds a legend
+      var legend = new Legend({
+        view:view,
+        layerInfos:[
+          {
+            layer:trashLayer,
+            title:"Trash Cleanup Status"
+          }
+        ]
+      });
+      view.ui.add(legend, "bottom-right")
+});
+});
+</script>
+  </head>
+  <body>
+    <div id="viewDiv"></div>
+    <div id="editorDiv"></div>
+    <div class="overlay">
+      <div class="overlay-inner">
+        <div class="message">
+          <p>Welcome to the Park Trash App! Please add trash points or see the status of Trash Pickup in Philly Parks.</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
